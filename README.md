@@ -1,25 +1,29 @@
-# MERN Task Management System
+# MERN Task Management System (EC2 Deployment Guide)
 
-A complete MERN-based task management system where users can create, update, and delete tasks.
+This project is a MERN-based task management application where users can create, update, and delete tasks.
+
+The guide below explains how to deploy the full stack on an AWS EC2 Ubuntu machine, with MongoDB Atlas as the hosted database.
 
 ## Features
 
-- Create tasks with title, description, and status.
-- View all tasks from MongoDB.
-- Update existing tasks.
-- Delete tasks.
-- Frontend integrated with backend REST API.
-- Ready-to-deploy architecture using MongoDB Atlas + Render + Netlify/Vercel.
+- Create tasks with title, description, and status
+- Read/list tasks from MongoDB
+- Update tasks
+- Delete tasks
+- React frontend connected to Express REST API
 
 ## Tech Stack
 
 - Frontend: React + Vite
-- Backend: Node.js + Express
-- Database: MongoDB Atlas (hosted)
+- Backend: Node.js + Express + Mongoose
+- Database: MongoDB Atlas (cloud hosted)
+- Deployment host: AWS EC2 (Ubuntu)
+- Process manager: PM2
+- Web server/reverse proxy: Nginx
 
 ## Project Structure
 
-```
+```text
 Student Records/
   backend/
     src/
@@ -35,195 +39,274 @@ Student Records/
   README.md
 ```
 
-## 1) Local Setup
+## API Endpoints
 
-### Prerequisites
+Base URL: /api/tasks
 
-- Node.js 18+
-- npm
-- MongoDB Atlas account (recommended) or local MongoDB
+- GET /api/tasks
+- POST /api/tasks
+- PUT /api/tasks/:id
+- DELETE /api/tasks/:id
 
-### Backend Setup
+Health endpoint: /api/health
 
-1. Navigate to backend folder:
+## 1. Prerequisites
+
+Before deployment, ensure you have:
+
+- AWS account
+- EC2 instance (Ubuntu 22.04 recommended)
+- A domain name (recommended for production)
+- MongoDB Atlas cluster and connection URI
+- Project code pushed to GitHub
+
+## 2. Launch and Prepare EC2
+
+## 2.1 Create EC2 instance
+
+1. Launch Ubuntu EC2 (t2.micro for testing is fine).
+2. Allow inbound security group rules:
+   - SSH: 22 (your IP only)
+   - HTTP: 80 (0.0.0.0/0)
+   - HTTPS: 443 (0.0.0.0/0)
+
+## 2.2 Connect to EC2
+
+```bash
+ssh -i /path/to/your-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
+```
+
+## 2.3 Install required software
+
+```bash
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs nginx git
+sudo npm install -g pm2
+```
+
+Verify:
+
+```bash
+node -v
+npm -v
+pm2 -v
+nginx -v
+```
+
+## 3. MongoDB Atlas Setup
+
+1. Create cluster in MongoDB Atlas.
+2. Create DB user with username/password.
+3. In Network Access:
+   - For quick testing, allow 0.0.0.0/0
+   - For better security, allow only EC2 public IP
+4. Copy connection string:
+
+```text
+mongodb+srv://<username>:<password>@<cluster-url>/<dbName>?retryWrites=true&w=majority
+```
+
+## 4. Clone and Configure Project on EC2
+
+## 4.1 Clone repository
+
+```bash
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
+```
+
+## 4.2 Backend environment setup
 
 ```bash
 cd backend
-```
-
-2. Create environment file:
-
-```bash
 cp .env.example .env
+nano .env
 ```
 
-3. Update `.env` values:
+Set:
 
 ```env
 PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-FRONTEND_URL=http://localhost:5173
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<dbName>?retryWrites=true&w=majority
+FRONTEND_URL=http://YOUR_EC2_PUBLIC_IP
 ```
 
-4. Install and start backend:
+Install backend dependencies:
 
 ```bash
 npm install
-npm run dev
 ```
 
-Backend runs at `http://localhost:5000`.
-
-### Frontend Setup
-
-1. Open a new terminal and navigate:
+## 4.3 Frontend environment setup
 
 ```bash
-cd frontend
-```
-
-2. Create environment file:
-
-```bash
+cd ../frontend
 cp .env.example .env
+nano .env
 ```
 
-3. Ensure API URL in `.env`:
+Set:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://YOUR_EC2_PUBLIC_IP/api
 ```
 
-4. Install and start frontend:
+Install and build frontend:
 
 ```bash
 npm install
-npm run dev
+npm run build
 ```
 
-Frontend runs at `http://localhost:5173`.
+## 5. Run Backend with PM2
 
-## 2) API Endpoints
+From project root:
 
-Base URL: `/api/tasks`
+```bash
+cd backend
+pm2 start src/server.js --name task-manager-api
+pm2 save
+pm2 startup
+```
 
-- `GET /api/tasks` - Fetch all tasks
-- `POST /api/tasks` - Create a task
-- `PUT /api/tasks/:id` - Update a task
-- `DELETE /api/tasks/:id` - Delete a task
+Check logs/status:
 
-Sample request body for create/update:
+```bash
+pm2 list
+pm2 logs task-manager-api
+```
 
-```json
-{
-  "title": "Finish assignment",
-  "description": "Submit MERN project",
-  "status": "in-progress"
+Test API from EC2:
+
+```bash
+curl http://localhost:5000/api/health
+```
+
+## 6. Configure Nginx (Frontend + API Reverse Proxy)
+
+Create Nginx config:
+
+```bash
+sudo nano /etc/nginx/sites-available/task-manager
+```
+
+Paste:
+
+```nginx
+server {
+    listen 80;
+    server_name YOUR_DOMAIN_OR_EC2_IP;
+
+    root /home/ubuntu/<your-repo>/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:5000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
 
-## 3) Deployment Guide
-
-### Step A: Host Database on MongoDB Atlas
-
-1. Create a free cluster in MongoDB Atlas.
-2. Create a database user.
-3. Add IP access rule:
-   - For testing: allow `0.0.0.0/0`
-   - For production: restrict to known IPs.
-4. Copy connection string and set:
-   - `MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-url>/<dbName>?retryWrites=true&w=majority`
-
-### Step B: Deploy Backend on Render
-
-1. Push project to GitHub.
-2. In Render, choose **New + Web Service**.
-3. Select your repository.
-4. Set Root Directory to `backend`.
-5. Build Command:
+Enable site:
 
 ```bash
-npm install
+sudo ln -s /etc/nginx/sites-available/task-manager /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
 ```
 
-6. Start Command:
+Now open:
+
+```text
+http://YOUR_EC2_PUBLIC_IP
+```
+
+## 7. Optional: Enable HTTPS with Let's Encrypt
+
+If domain is mapped to EC2 public IP:
 
 ```bash
-npm start
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 ```
 
-7. Add Environment Variables:
+Auto-renew test:
 
-- `PORT=5000`
-- `MONGODB_URI=<your atlas uri>`
-- `FRONTEND_URL=<your frontend deployed url>`
+```bash
+sudo certbot renew --dry-run
+```
 
-8. Deploy and copy backend URL, e.g.:
-
-`https://your-backend.onrender.com`
-
-Health check URL:
-
-`https://your-backend.onrender.com/api/health`
-
-### Step C: Deploy Frontend (Netlify or Vercel)
-
-#### Option 1: Netlify
-
-1. Create a new site from GitHub repo.
-2. Set Base directory to `frontend`.
-3. Build command: `npm run build`
-4. Publish directory: `dist`
-5. Add environment variable:
-
-- `VITE_API_URL=https://your-backend.onrender.com/api`
-
-6. Deploy and get frontend URL.
-
-#### Option 2: Vercel
-
-1. Import repo in Vercel.
-2. Set Root Directory to `frontend`.
-3. Framework preset: Vite.
-4. Add environment variable:
-
-- `VITE_API_URL=https://your-backend.onrender.com/api`
-
-5. Deploy.
-
-### Step D: Update CORS for Production
-
-In Render backend environment variables, set:
+Then update backend CORS value in backend/.env:
 
 ```env
-FRONTEND_URL=https://your-frontend-domain.com
+FRONTEND_URL=https://yourdomain.com
 ```
 
-Redeploy backend after updating this value.
+Restart backend:
 
-## 4) Final Deployment Verification Checklist
+```bash
+pm2 restart task-manager-api
+```
 
-- Frontend opens successfully.
-- Create task works and saves to Atlas.
-- Update task works.
-- Delete task works.
-- No CORS errors in browser console.
-- Backend health endpoint returns success.
+## 8. Update Workflow After Code Changes
 
-## 5) Assignment Submission Tips
+After pushing new code:
 
-- Include screenshots:
-  - Task list view
-  - Create/update/delete flows
-  - MongoDB Atlas collection with task documents
-- Include deployed URLs for frontend and backend.
-- Mention this architecture:
-  - React frontend -> Express API -> MongoDB Atlas
+```bash
+cd /home/ubuntu/<your-repo>
+git pull origin main
 
----
+cd backend
+npm install
+pm2 restart task-manager-api
 
-If you want, I can also add:
+cd ../frontend
+npm install
+npm run build
 
-- Docker setup (`Dockerfile` + `docker-compose.yml`)
-- Authentication (JWT login/register)
-- Task filtering and search
+sudo systemctl reload nginx
+```
+
+## 9. Verification Checklist
+
+- App loads from EC2 public URL/domain
+- Create task works
+- Update task works
+- Delete task works
+- No CORS errors in browser console
+- /api/health returns success
+- Tasks are stored in MongoDB Atlas
+
+## 10. Common Troubleshooting
+
+1. 502 Bad Gateway in browser
+   - Check PM2 status/logs
+   - Ensure backend is listening on PORT=5000
+
+2. CORS error in browser
+   - Ensure FRONTEND_URL in backend/.env exactly matches frontend URL
+   - Restart PM2 after changing .env
+
+3. MongoDB connection error
+   - Verify MONGODB_URI format
+   - Confirm Atlas user/password
+   - Confirm Atlas Network Access includes EC2 IP
+
+4. Frontend routing gives 404 on refresh
+   - Confirm Nginx has: try_files $uri $uri/ /index.html;
+
+## 11. Security Notes (Recommended)
+
+- Do not commit real secrets in .env files
+- Restrict SSH rule (port 22) to your IP only
+- Prefer domain + HTTPS over raw public IP
+- Use Atlas IP allow-list restrictions instead of 0.0.0.0/0 in production
