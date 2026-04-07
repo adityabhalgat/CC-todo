@@ -1,0 +1,155 @@
+:root {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #1d2635;
+  background: linear-gradient(120deg, #f4f8ff 0%, #ebf2ff 50%, #ffffff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 860px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(25, 50, 100, 0.12);
+  padding: 1.5rem;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+.subtitle {
+  margin-top: -0.4rem;
+  color: #4c5a73;
+}
+
+.task-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #c7d3e8;
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  background: #fff;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  background: #1357d6;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.94;
+}
+
+.secondary {
+  background: #697791;
+}
+
+.danger {
+  background: #c92c2c;
+}
+
+.form-actions,
+.task-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error {
+  color: #b42318;
+  background: #fff1f0;
+  border: 1px solid #ffd0cd;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+}
+
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-item {
+  border: 1px solid #d8e1f3;
+  border-radius: 12px;
+  padding: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.task-item h3 {
+  margin: 0 0 0.3rem;
+}
+
+.task-item p {
+  margin: 0 0 0.45rem;
+  color: #425166;
+}
+
+.status {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  text-transform: capitalize;
+}
+
+.status-pending {
+  background: #fff1cc;
+  color: #7e5700;
+}
+
+.status-in-progress {
+  background: #dcebff;
+  color: #0f4ea7;
+}
+
+.status-completed {
+  background: #d8f8e4;
+  color: #10663d;
+}
+
+@media (max-width: 680px) {
+  .task-item {
+    flex-direction: column;
+  }
+}
